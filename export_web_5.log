@@ -1,0 +1,30 @@
+Starting Metro Bundler
+Web Bundling failed 32734ms index.js (2758 modules)
+Error: Unable to resolve module react-native-svg from /app/node_modules/lucide-react-native/dist/esm/createLucideIcon.js: react-native-svg could not be found within the project or in these directories:
+  node_modules
+[0m [90m  7 |[39m
+ [90m  8 |[39m [36mimport[39m { forwardRef[33m,[39m createElement } [36mfrom[39m [32m'react'[39m[33m;[39m
+[31m[1m>[22m[39m[90m  9 |[39m [36mimport[39m [33m*[39m [36mas[39m [33mNativeSvg[39m [36mfrom[39m [32m'react-native-svg'[39m[33m;[39m
+ [90m    |[39m                             [31m[1m^[22m[39m
+ [90m 10 |[39m [36mimport[39m defaultAttributes[33m,[39m { childDefaultAttributes } [36mfrom[39m [32m'./defaultAttributes.js'[39m[33m;[39m
+ [90m 11 |[39m
+ [90m 12 |[39m [36mconst[39m createLucideIcon [33m=[39m (iconName[33m,[39m iconNode) [33m=>[39m {[0m
+Error: Unable to resolve module react-native-svg from /app/node_modules/lucide-react-native/dist/esm/createLucideIcon.js: react-native-svg could not be found within the project or in these directories:
+  node_modules
+[0m [90m  7 |[39m
+ [90m  8 |[39m [36mimport[39m { forwardRef[33m,[39m createElement } [36mfrom[39m [32m'react'[39m[33m;[39m
+[31m[1m>[22m[39m[90m  9 |[39m [36mimport[39m [33m*[39m [36mas[39m [33mNativeSvg[39m [36mfrom[39m [32m'react-native-svg'[39m[33m;[39m
+ [90m    |[39m                             [31m[1m^[22m[39m
+ [90m 10 |[39m [36mimport[39m defaultAttributes[33m,[39m { childDefaultAttributes } [36mfrom[39m [32m'./defaultAttributes.js'[39m[33m;[39m
+ [90m 11 |[39m
+ [90m 12 |[39m [36mconst[39m createLucideIcon [33m=[39m (iconName[33m,[39m iconNode) [33m=>[39m {[0m
+    at ModuleResolver.resolveDependency (/app/node_modules/metro/src/node-haste/DependencyGraph/ModuleResolution.js:150:15)
+    at DependencyGraph.resolveDependency (/app/node_modules/metro/src/node-haste/DependencyGraph.js:248:43)
+    at /app/node_modules/metro/src/lib/transformHelpers.js:165:21
+    at resolveDependencies (/app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:42:25)
+    at visit (/app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:83:30)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async Promise.all (index 1470)
+    at visit (/app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:92:5)
+    at async Promise.all (index 4)
+    at visit (/app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:92:5)
