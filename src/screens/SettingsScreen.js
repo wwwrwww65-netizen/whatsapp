@@ -1,5 +1,17 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Switch,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert
+} from 'react-native';
 import { theme } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -12,11 +24,75 @@ import {
   Camera,
   Languages,
   ShieldCheck,
-  CircleHelp
+  CircleHelp,
+  Check,
+  X
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../services/firebase';
 
 export default function SettingsScreen() {
-  const { profile, logout } = useAuth();
+  const { profile, logout, updateProfile } = useAuth();
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState(profile?.displayName || '');
+  const [editStatus, setEditStatus] = useState(profile?.status || '');
+  const [updating, setUpdating] = useState(false);
+
+  const handlePickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      uploadProfileImage(result.assets[0].uri);
+    }
+  };
+
+  const uploadProfileImage = async (uri) => {
+    setUpdating(true);
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const filename = `profiles/${profile.uid}/${Date.now()}.jpg`;
+      const storageRef = ref(storage, filename);
+
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      await updateProfile({ photoURL: downloadURL });
+      Alert.alert('نجاح', 'تم تحديث الصورة الشخصية');
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert('خطأ', 'فشل تحديث الصورة');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!editName.trim()) {
+      Alert.alert('تنبيه', 'لا يمكن أن يكون الاسم فارغاً');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      await updateProfile({
+        displayName: editName.trim(),
+        status: editStatus.trim()
+      });
+      setIsEditingProfile(false);
+      Alert.alert('نجاح', 'تم تحديث البيانات');
+    } catch (error) {
+      Alert.alert('خطأ', 'فشل تحديث البيانات');
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const SettingItem = ({ icon: Icon, title, subtitle, onPress, color = theme.colors.textSecondary, showChevron = true }) => (
     <TouchableOpacity style={styles.settingItem} onPress={onPress}>
@@ -35,11 +111,11 @@ export default function SettingsScreen() {
     <View style={styles.container}>
       <ScrollView>
         {/* Profile Header */}
-        <View style={styles.profileHeader}>
+        <TouchableOpacity style={styles.profileHeader} onPress={() => setIsEditingProfile(true)}>
           <View style={styles.avatarContainer}>
             <Image source={{ uri: profile?.photoURL }} style={styles.avatar} />
-            <TouchableOpacity style={styles.cameraBtn}>
-              <Camera size={20} color={theme.colors.white} />
+            <TouchableOpacity style={styles.cameraBtn} onPress={handlePickImage} disabled={updating}>
+              {updating ? <ActivityIndicator size="small" color={theme.colors.white} /> : <Camera size={20} color={theme.colors.white} />}
             </TouchableOpacity>
           </View>
           <View style={styles.profileInfo}>
@@ -47,7 +123,64 @@ export default function SettingsScreen() {
             <Text style={styles.username}>@{profile?.username}</Text>
             <Text style={styles.status} numberOfLines={1}>{profile?.status}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
+
+        {/* Edit Profile Modal */}
+        <Modal
+          visible={isEditingProfile}
+          animationType="slide"
+          onRequestClose={() => setIsEditingProfile(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setIsEditingProfile(false)}>
+                <X size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>تعديل الملف الشخصي</Text>
+              <TouchableOpacity onPress={handleUpdateProfile} disabled={updating}>
+                {updating ? <ActivityIndicator size="small" color={theme.colors.primary} /> : <Check size={24} color={theme.colors.primary} />}
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalContent}>
+              <View style={styles.editAvatarSection}>
+                <Image source={{ uri: profile?.photoURL }} style={styles.largeAvatar} />
+                <TouchableOpacity style={styles.editAvatarBtn} onPress={handlePickImage}>
+                  <Camera size={24} color={theme.colors.white} />
+                  <Text style={styles.editAvatarText}>تغيير الصورة</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputSection}>
+                <Text style={styles.inputLabel}>الاسم</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.textInput}
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder="أدخل اسمك"
+                    placeholderTextColor={theme.colors.textSecondary}
+                  />
+                </View>
+                <Text style={styles.inputHint}>هذا ليس اسم المستخدم الخاص بك. هذا الاسم سيظهر لجهات اتصالك في هش.</Text>
+              </View>
+
+              <View style={styles.inputSection}>
+                <Text style={styles.inputLabel}>الأخبار</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.textInput}
+                    value={editStatus}
+                    onChangeText={setEditStatus}
+                    placeholder="الحالة"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    multiline
+                  />
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </Modal>
 
         <View style={styles.section}>
           <SettingItem
@@ -198,5 +331,75 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  editAvatarSection: {
+    alignItems: 'center',
+    marginVertical: 30,
+  },
+  largeAvatar: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    marginBottom: 15,
+  },
+  editAvatarBtn: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  editAvatarText: {
+    color: theme.colors.white,
+    marginLeft: 8,
+    fontWeight: 'bold',
+  },
+  inputSection: {
+    marginBottom: 25,
+  },
+  inputLabel: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'right',
+  },
+  inputWrapper: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.primary,
+    paddingBottom: 5,
+  },
+  textInput: {
+    color: theme.colors.text,
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  inputHint: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'right',
   }
 });
