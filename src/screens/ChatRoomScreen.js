@@ -24,13 +24,15 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
+  getDoc,
   getDocs,
   where,
   writeBatch,
   increment,
 } from 'firebase/firestore';
-import { db, storage } from '../services/firebase';
-import { format } from 'date-fns';
+import { ref as dbRef, onValue } from 'firebase/database';
+import { db, storage, rtdb } from '../services/firebase';
+import { format, isToday, isYesterday } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -64,17 +66,33 @@ export default function ChatRoomScreen({ route, navigation }) {
       updateMessagesToSeen(snapshot.docs);
     });
 
-    // Listen for other user status
-    const userRef = doc(db, 'users', otherUser.id || otherUser.uid);
-    const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setOtherUserStatus(docSnap.data());
+    // Listen for other user status from RTDB (Real-time Presence)
+    const statusRef = dbRef(rtdb, `/status/${otherUser.id || otherUser.uid}`);
+    const unsubscribeStatus = onValue(statusRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setOtherUserStatus({
+          isOnline: data.state === 'online',
+          lastSeen: data.last_changed
+        });
+      } else {
+        // Fallback to Firestore if RTDB data doesn't exist yet
+        const userRef = doc(db, 'users', otherUser.id || otherUser.uid);
+        getDoc(userRef).then(docSnap => {
+          if (docSnap.exists()) {
+            const userData = docSnap.data();
+            setOtherUserStatus({
+              isOnline: userData.isOnline,
+              lastSeen: userData.lastSeen
+            });
+          }
+        });
       }
     });
 
     return () => {
       unsubscribe();
-      unsubscribeUser();
+      unsubscribeStatus();
     };
   }, [chatId]);
 
@@ -104,6 +122,11 @@ export default function ChatRoomScreen({ route, navigation }) {
 
       if (hasChanges) {
         await batch.commit();
+        // Also update the chat document's lastMessageStatus
+        const chatRef = doc(db, 'chats', chatId);
+        await updateDoc(chatRef, {
+          lastMessageStatus: 'seen'
+        });
       }
     } catch (error) {
       console.error("Error updating messages to seen:", error);
@@ -130,6 +153,8 @@ export default function ChatRoomScreen({ route, navigation }) {
       await updateDoc(chatRef, {
         lastMessage: text,
         lastMessageTime: serverTimestamp(),
+        lastMessageSenderId: user.uid,
+        lastMessageStatus: 'sent',
         [`unreadCount.${otherUser.id || otherUser.uid}`]: increment(1)
       });
     } catch (error) {
@@ -173,6 +198,8 @@ export default function ChatRoomScreen({ route, navigation }) {
       await updateDoc(chatRef, {
         lastMessage: 'صورة',
         lastMessageTime: serverTimestamp(),
+        lastMessageSenderId: user.uid,
+        lastMessageStatus: 'sent',
         [`unreadCount.${otherUser.id || otherUser.uid}`]: increment(1)
       });
     } catch (error) {
@@ -184,8 +211,18 @@ export default function ChatRoomScreen({ route, navigation }) {
     if (isOnline) return 'متصل الآن';
     if (lastSeen) {
       try {
-        const date = lastSeen.toDate ? lastSeen.toDate() : new Date(lastSeen);
-        return `آخر ظهور ${format(date, 'p', { locale: ar })}`;
+        // Handle both Firestore Timestamp and RTDB number timestamp
+        const date = typeof lastSeen === 'number' ? new Date(lastSeen) : (lastSeen.toDate ? lastSeen.toDate() : new Date(lastSeen));
+
+        let timeStr = format(date, 'p', { locale: ar });
+        if (!isToday(date)) {
+          if (isYesterday(date)) {
+            timeStr = `أمس ${timeStr}`;
+          } else {
+            timeStr = `${format(date, 'dd/MM/yyyy')} ${timeStr}`;
+          }
+        }
+        return `آخر ظهور ${timeStr}`;
       } catch (e) {
         return 'غير متصل';
       }
@@ -196,6 +233,21 @@ export default function ChatRoomScreen({ route, navigation }) {
   const renderMessage = ({ item }) => {
     const isMine = item.senderId === user.uid;
     const time = item.createdAt ? format(item.createdAt.toDate(), 'p', { locale: ar }) : '';
+
+    const renderTicks = () => {
+      if (!isMine) return null;
+
+      if (item.status === 'sent') {
+        return <Check size={14} color="rgba(233, 237, 239, 0.6)" />;
+      }
+
+      return (
+        <CheckCheck
+          size={14}
+          color={item.status === 'seen' ? '#34B7F1' : 'rgba(233, 237, 239, 0.6)'}
+        />
+      );
+    };
 
     return (
       <View style={[styles.messageWrapper, isMine ? styles.myMessageWrapper : styles.theirMessageWrapper]}>
@@ -208,7 +260,7 @@ export default function ChatRoomScreen({ route, navigation }) {
             <Text style={styles.messageTime}>{time}</Text>
             {isMine && (
               <View style={styles.statusIcon}>
-                <CheckCheck size={14} color={item.status === 'seen' ? '#34B7F1' : theme.colors.textSecondary} />
+                {renderTicks()}
               </View>
             )}
           </View>
