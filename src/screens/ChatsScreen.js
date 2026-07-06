@@ -3,10 +3,10 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react
 import Header from '../components/Header';
 import { theme } from '../theme';
 import { useAuth } from '../hooks/useAuth';
-import { MessageSquarePlus } from 'lucide-react-native';
+import { MessageSquarePlus, Check, CheckCheck } from 'lucide-react-native';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
 export default function ChatsScreen({ navigation }) {
@@ -27,12 +27,26 @@ export default function ChatsScreen({ navigation }) {
         const data = doc.data();
         const otherUserId = data.participants.find(id => id !== user.uid);
         const otherUser = data.participantDetails[otherUserId];
+        const unreadCount = data.unreadCount ? data.unreadCount[user.uid] : 0;
+
+        let timeStr = '';
+        if (data.lastMessageTime) {
+          const date = data.lastMessageTime.toDate();
+          if (isToday(date)) {
+            timeStr = format(date, 'p', { locale: ar });
+          } else if (isYesterday(date)) {
+            timeStr = 'أمس';
+          } else {
+            timeStr = format(date, 'dd/MM/yyyy');
+          }
+        }
 
         return {
           id: doc.id,
-          user: { ...otherUser, uid: otherUserId },
+          user: { ...otherUser, id: otherUserId },
           lastMessage: data.lastMessage,
-          lastMessageTime: data.lastMessageTime ? format(data.lastMessageTime.toDate(), 'p', { locale: ar }) : '',
+          lastMessageTime: timeStr,
+          unreadCount,
         };
       });
       setChats(chatList);
@@ -52,7 +66,16 @@ export default function ChatsScreen({ navigation }) {
           <Text style={styles.chatTime}>{item.lastMessageTime}</Text>
           <Text style={styles.chatName}>{item.user.displayName}</Text>
         </View>
-        <Text style={styles.lastMessage} numberOfLines={1}>{item.lastMessage}</Text>
+        <View style={styles.chatFooter}>
+          {item.unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadText}>{item.unreadCount}</Text>
+            </View>
+          )}
+          <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]} numberOfLines={1}>
+            {item.lastMessage}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -121,10 +144,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textSecondary,
   },
+  chatFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   lastMessage: {
+    flex: 1,
     fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'right',
+  },
+  unreadLastMessage: {
+    color: theme.colors.text,
+    fontWeight: '500',
+  },
+  unreadBadge: {
+    backgroundColor: theme.colors.primary,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  unreadText: {
+    color: theme.colors.white,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   emptyContainer: {
     flex: 1,

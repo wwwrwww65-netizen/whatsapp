@@ -1,40 +1,40 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { MessageSquare, CircleDot, Users, Phone, Settings } from 'lucide-react-native';
+import { MessageCircle, Phone, Users, CircleDot, Settings as SettingsIcon } from 'lucide-react-native';
 import { theme } from '../theme';
-import { BlurView } from 'expo-blur';
-import { StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 
-// Placeholder Screens
+// Screens
 import ChatsScreen from '../screens/ChatsScreen';
+import ChatRoomScreen from '../screens/ChatRoomScreen';
+import SearchScreen from '../screens/SearchScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import CallsScreen from '../screens/CallsScreen';
 import UpdatesScreen from '../screens/UpdatesScreen';
 import CommunitiesScreen from '../screens/CommunitiesScreen';
-import CallsScreen from '../screens/CallsScreen';
-import ChatRoomScreen from '../screens/ChatRoomScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import SearchScreen from '../screens/SearchScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function MainTabs() {
+function TabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={{
+        headerShown: false,
         tabBarStyle: {
-          position: 'absolute',
-          borderTopColor: 'transparent',
-          height: 70,
-          paddingBottom: 10,
-          backgroundColor: 'rgba(17, 27, 33, 0.8)', // Semi-transparent
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.border,
+          height: Platform.OS === 'ios' ? 90 : 70,
+          paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+          paddingTop: 10,
         },
-        tabBarBackground: () => (
-          <BlurView tint="dark" intensity={80} style={StyleSheet.absoluteFill} />
-        ),
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
-        headerShown: false,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        }
       }}
     >
       <Tab.Screen
@@ -42,7 +42,7 @@ function MainTabs() {
         component={ChatsScreen}
         options={{
           tabBarLabel: 'الدردشات',
-          tabBarIcon: ({ color, size }) => <MessageSquare size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
         }}
       />
       <Tab.Screen
@@ -69,6 +69,14 @@ function MainTabs() {
           tabBarIcon: ({ color, size }) => <Phone size={size} color={color} />,
         }}
       />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: 'الإعدادات',
+          tabBarIcon: ({ color, size }) => <SettingsIcon size={size} color={color} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -77,16 +85,29 @@ export default function Navigation() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: theme.colors.surface },
-        headerTintColor: theme.colors.text,
-        headerTitleAlign: 'right', // RTL feel
+        headerShown: false,
         contentStyle: { backgroundColor: theme.colors.background },
+        animation: 'slide_from_left',
       }}
     >
-      <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
-      <Stack.Screen name="ChatRoom" component={ChatRoomScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'الإعدادات' }} />
-      <Stack.Screen name="Search" component={SearchScreen} options={{ title: 'البحث عن مستخدمين' }} />
+      <Stack.Screen name="Main" component={TabNavigator} />
+      <Stack.Screen
+        name="ChatRoom"
+        component={ChatRoomScreen}
+        options={{ animation: 'slide_from_left' }}
+      />
+      <Stack.Screen
+        name="Search"
+        component={SearchScreen}
+        options={{
+          headerShown: true,
+          title: 'بحث عن مستخدم',
+          headerStyle: { backgroundColor: theme.colors.surface },
+          headerTintColor: theme.colors.text,
+          headerTitleStyle: { fontWeight: 'bold' },
+          headerTitleAlign: 'right',
+        }}
+      />
     </Stack.Navigator>
   );
 }

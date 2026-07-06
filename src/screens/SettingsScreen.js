@@ -1,53 +1,103 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
-import { useAuth } from '../hooks/useAuth';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch } from 'react-native';
 import { theme } from '../theme';
-import { User, Lock, MessageCircle, Bell, Database, HelpCircle, LogOut } from 'lucide-react-native';
-import { auth } from '../services/firebase';
+import { useAuth } from '../hooks/useAuth';
+import {
+  User,
+  Bell,
+  Lock,
+  HelpCircle,
+  LogOut,
+  ChevronLeft,
+  Camera,
+  Languages,
+  ShieldCheck,
+  CircleHelp
+} from 'lucide-react-native';
 
 export default function SettingsScreen() {
-  const { profile } = useAuth();
+  const { profile, logout } = useAuth();
 
-  const handleLogout = () => {
-    auth.signOut();
-  };
-
-  const SettingItem = ({ icon: Icon, title, subtitle, color }) => (
-    <TouchableOpacity style={styles.item}>
-      <View style={styles.itemContent}>
-        <Text style={styles.itemTitle}>{title}</Text>
-        {subtitle && <Text style={styles.itemSubtitle}>{subtitle}</Text>}
+  const SettingItem = ({ icon: Icon, title, subtitle, onPress, color = theme.colors.textSecondary, showChevron = true }) => (
+    <TouchableOpacity style={styles.settingItem} onPress={onPress}>
+      <View style={styles.settingIconContainer}>
+        <Icon size={24} color={color} />
       </View>
-      <View style={styles.iconContainer}>
-        <Icon size={24} color={color || theme.colors.textSecondary} />
+      <View style={styles.settingTextContainer}>
+        <Text style={styles.settingTitle}>{title}</Text>
+        {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
       </View>
+      {showChevron && <ChevronLeft size={20} color={theme.colors.textSecondary} />}
     </TouchableOpacity>
   );
 
   return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity style={styles.profileSection}>
-        <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>{profile?.displayName}</Text>
-          <Text style={styles.profileStatus}>{profile?.status}</Text>
+    <View style={styles.container}>
+      <ScrollView>
+        {/* Profile Header */}
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarContainer}>
+            <Image source={{ uri: profile?.photoURL }} style={styles.avatar} />
+            <TouchableOpacity style={styles.cameraBtn}>
+              <Camera size={20} color={theme.colors.white} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.profileInfo}>
+            <Text style={styles.displayName}>{profile?.displayName}</Text>
+            <Text style={styles.username}>@{profile?.username}</Text>
+            <Text style={styles.status} numberOfLines={1}>{profile?.status}</Text>
+          </View>
         </View>
-        <Image source={{ uri: profile?.photoURL }} style={styles.profileAvatar} />
-      </TouchableOpacity>
 
-      <View style={styles.divider} />
+        <View style={styles.section}>
+          <SettingItem
+            icon={User}
+            title="الحساب"
+            subtitle="الخصوصية، الأمان، تغيير الرقم"
+          />
+          <SettingItem
+            icon={Lock}
+            title="الخصوصية"
+            subtitle="آخر ظهور، صورة الملف الشخصي"
+          />
+          <SettingItem
+            icon={Bell}
+            title="الإشعارات"
+            subtitle="نغمات الرسائل، المجموعات"
+          />
+          <SettingItem
+            icon={ShieldCheck}
+            title="الأمان"
+            subtitle="التحقق بخطوتين، تشفير الرسائل"
+          />
+          <SettingItem
+            icon={Languages}
+            title="لغة التطبيق"
+            subtitle="العربية (لغة النظام)"
+          />
+        </View>
 
-      <SettingItem icon={User} title="الحساب" subtitle="الخصوصية، الأمان، تغيير الرقم" />
-      <SettingItem icon={Lock} title="الخصوصية" subtitle="آخر ظهور، الصورة الشخصية" />
-      <SettingItem icon={MessageCircle} title="الدردشات" subtitle="المظهر، الخلفيات، سجل الدردشات" />
-      <SettingItem icon={Bell} title="الإشعارات" subtitle="نغمات الرسائل والمجموعات" />
-      <SettingItem icon={Database} title="التخزين والبيانات" subtitle="استخدام الشبكة، التنزيل التلقائي" />
-      <SettingItem icon={HelpCircle} title="المساعدة" subtitle="مركز المساعدة، اتصل بنا، سياسة الخصوصية" />
+        <View style={styles.section}>
+          <SettingItem
+            icon={CircleHelp}
+            title="المساعدة"
+            subtitle="مركز المساعدة، اتصل بنا، سياسة الخصوصية"
+          />
+          <SettingItem
+            icon={LogOut}
+            title="تسجيل الخروج"
+            color={theme.colors.error}
+            showChevron={false}
+            onPress={logout}
+          />
+        </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>تسجيل الخروج</Text>
-        <LogOut size={24} color={theme.colors.error} />
-      </TouchableOpacity>
-    </ScrollView>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>من</Text>
+          <Text style={styles.footerBrand}>Hash Team</Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -56,69 +106,97 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  profileSection: {
-    flexDirection: 'row',
+  profileHeader: {
+    flexDirection: 'row-reverse',
     padding: 20,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    backgroundColor: theme.colors.surface,
+    marginBottom: 20,
   },
-  profileAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginLeft: 15,
+  avatarContainer: {
+    position: 'relative',
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  cameraBtn: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    backgroundColor: theme.colors.primary,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.surface,
   },
   profileInfo: {
+    flex: 1,
+    marginRight: 20,
     alignItems: 'flex-end',
   },
-  profileName: {
-    color: theme.colors.text,
-    fontSize: 20,
+  displayName: {
+    fontSize: 22,
     fontWeight: 'bold',
+    color: theme.colors.text,
   },
-  profileStatus: {
-    color: theme.colors.textSecondary,
+  username: {
     fontSize: 14,
+    color: theme.colors.primary,
+    marginTop: 2,
   },
-  divider: {
-    height: 0.5,
-    backgroundColor: theme.colors.border,
-    marginVertical: 10,
+  status: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
   },
-  item: {
-    flexDirection: 'row',
+  section: {
+    backgroundColor: theme.colors.surface,
+    marginBottom: 20,
+    borderTopWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: theme.colors.border,
+  },
+  settingItem: {
+    flexDirection: 'row-reverse',
     padding: 15,
     alignItems: 'center',
-    justifyContent: 'flex-end',
   },
-  iconContainer: {
+  settingIconContainer: {
     width: 40,
     alignItems: 'center',
-    marginLeft: 15,
   },
-  itemContent: {
+  settingTextContainer: {
     flex: 1,
+    marginRight: 15,
     alignItems: 'flex-end',
   },
-  itemTitle: {
+  settingTitle: {
+    fontSize: 16,
     color: theme.colors.text,
-    fontSize: 16,
+    fontWeight: '500',
   },
-  itemSubtitle: {
-    color: theme.colors.textSecondary,
+  settingSubtitle: {
     fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
-  logoutButton: {
-    flexDirection: 'row',
-    padding: 20,
+  footer: {
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 20,
+    paddingVertical: 30,
   },
-  logoutText: {
-    color: theme.colors.error,
-    fontSize: 16,
+  footerText: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+  },
+  footerBrand: {
+    color: theme.colors.text,
+    fontSize: 14,
     fontWeight: 'bold',
-    marginRight: 15,
+    letterSpacing: 1,
   }
 });

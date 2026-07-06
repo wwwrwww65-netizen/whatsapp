@@ -1,65 +1,55 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import { Search, Camera, MoreVertical } from 'lucide-react-native';
 import { theme } from '../theme';
-import { Camera, Search, MoreVertical } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
-import { BlurView } from 'expo-blur';
 
 export default function Header({ title }) {
   const navigation = useNavigation();
 
   return (
-    <View style={styles.wrapper}>
-      {Platform.OS === 'ios' && (
-        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-      )}
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.leftSection}>
-          <Text style={styles.logoText}>{title || 'هش'}</Text>
-        </View>
-        <View style={styles.rightSection}>
+        <View style={styles.leftIcons}>
           <TouchableOpacity style={styles.iconButton}>
             <Camera size={24} color={theme.colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Search')}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('Search')}
+          >
             <Search size={24} color={theme.colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Settings')}>
+          <TouchableOpacity style={styles.iconButton}>
             <MoreVertical size={24} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
+        <Text style={styles.title}>{title}</Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    height: 60,
-    backgroundColor: Platform.OS === 'ios' ? 'transparent' : theme.colors.surface,
-    borderBottomWidth: 0.5,
-    borderBottomColor: theme.colors.border,
+  safeArea: {
+    backgroundColor: theme.colors.surface,
   },
   container: {
-    flex: 1,
-    flexDirection: 'row-reverse',
+    height: 60,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: 15,
+    marginTop: Platform.OS === 'android' ? 30 : 0,
   },
-  leftSection: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  logoText: {
+  title: {
     fontSize: 22,
     fontWeight: 'bold',
     color: theme.colors.textSecondary,
-    marginRight: 10,
+    textAlign: 'right',
   },
-  rightSection: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
+  leftIcons: {
+    flexDirection: 'row',
   },
   iconButton: {
     marginLeft: 20,
