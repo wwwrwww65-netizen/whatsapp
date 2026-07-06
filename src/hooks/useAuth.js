@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { collection, doc, getDoc, getDocs, setDoc, query, where, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { collection, doc, getDoc, getDocs, setDoc, query, where, serverTimestamp, updateDoc, writeBatch, onSnapshot } from 'firebase/firestore';
+import { ref, onValue, set, onDisconnect, serverTimestamp as rtdbTimestamp } from 'firebase/database';
+import { db, rtdb } from '../services/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AuthContext = createContext({});
@@ -15,6 +16,79 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     checkSession();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Presence logic
+    const userStatusDatabaseRef = ref(rtdb, `/status/${user.uid}`);
+    const isOfflineForDatabase = {
+      state: 'offline',
+      last_changed: rtdbTimestamp(),
+    };
+    const isOnlineForDatabase = {
+      state: 'online',
+      last_changed: rtdbTimestamp(),
+    };
+
+    const connectedRef = ref(rtdb, '.info/connected');
+    const unsubscribe = onValue(connectedRef, (snapshot) => {
+      if (snapshot.val() === false) {
+        // Instead of setting offline here, we rely on onDisconnect
+        return;
+      }
+
+      onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
+        set(userStatusDatabaseRef, isOnlineForDatabase);
+      });
+    });
+
+    // Also update Firestore for redundancy/compatibility if needed,
+    // but RTDB is the primary source for "Online"
+    updateDoc(doc(db, 'users', user.uid), {
+      isOnline: true,
+      lastSeen: serverTimestamp()
+    });
+
+    // Global listener for delivered status
+    // Listen for chats where I am a participant and there are new messages
+    const chatsQuery = query(
+      collection(db, 'chats'),
+      where('participants', 'array-contains', user.uid)
+    );
+
+    const unsubscribeChats = onSnapshot(chatsQuery, (snapshot) => {
+      snapshot.docs.forEach(async (chatDoc) => {
+        const chatData = chatDoc.data();
+        // If there's an unread count for me, it means there are messages I haven't 'seen'
+        // But if I am online (which I am, since this listener is running), I should mark them as 'delivered'
+        if (chatData.unreadCount && chatData.unreadCount[user.uid] > 0) {
+          const messagesRef = collection(db, 'chats', chatDoc.id, 'messages');
+          const q = query(messagesRef, where('status', '==', 'sent'), where('senderId', '!=', user.uid));
+
+          const msgSnap = await getDocs(q);
+          if (!msgSnap.empty) {
+            const batch = writeBatch(db);
+            msgSnap.docs.forEach(mDoc => {
+              batch.update(mDoc.ref, { status: 'delivered' });
+            });
+            await batch.commit();
+          }
+        }
+      });
+    });
+
+    return () => {
+      unsubscribeChats();
+      unsubscribe();
+      // When component unmounts or user logs out, set offline
+      set(userStatusDatabaseRef, isOfflineForDatabase);
+      updateDoc(doc(db, 'users', user.uid), {
+        isOnline: false,
+        lastSeen: serverTimestamp()
+      });
+    };
+  }, [user]);
 
   const checkSession = async () => {
     try {

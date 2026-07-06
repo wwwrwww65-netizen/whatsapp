@@ -114,6 +114,16 @@ export default function SearchScreen({ navigation }) {
       };
 
       const docRef = await addDoc(collection(db, 'chats'), chatData);
+
+      // Also send an initial message to the subcollection to ensure it exists
+      const messagesRef = collection(db, 'chats', docRef.id, 'messages');
+      await addDoc(messagesRef, {
+        text: 'مرحباً! لقد قمت بإضافتك.',
+        senderId: user.uid,
+        createdAt: serverTimestamp(),
+        status: 'sent'
+      });
+
       setAddedIds(prev => ({ ...prev, [otherUser.id]: docRef.id }));
     } catch (error) {
       console.error("Error adding friend:", error);

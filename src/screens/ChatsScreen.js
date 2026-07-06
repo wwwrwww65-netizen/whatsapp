@@ -16,10 +16,11 @@ export default function ChatsScreen({ navigation }) {
   useEffect(() => {
     if (!user) return;
 
+    // Initially query without orderBy to ensure chats appear even if index is building
+    // or if some chats have no lastMessageTime yet
     const q = query(
       collection(db, 'chats'),
-      where('participants', 'array-contains', user.uid),
-      orderBy('lastMessageTime', 'desc')
+      where('participants', 'array-contains', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -46,39 +47,69 @@ export default function ChatsScreen({ navigation }) {
           user: { ...otherUser, id: otherUserId },
           lastMessage: data.lastMessage,
           lastMessageTime: timeStr,
+          rawTime: data.lastMessageTime,
           unreadCount,
+          lastMessageSenderId: data.lastMessageSenderId,
+          lastMessageStatus: data.lastMessageStatus,
         };
       });
-      setChats(chatList);
+      // Sort in-memory to avoid index requirements for now
+      const sortedList = chatList.sort((a, b) => {
+        const timeA = a.rawTime ? a.rawTime.toMillis() : 0;
+        const timeB = b.rawTime ? b.rawTime.toMillis() : 0;
+        return timeB - timeA;
+      });
+      setChats(sortedList);
     });
 
     return unsubscribe;
   }, [user]);
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.chatItem}
-      onPress={() => navigation.navigate('ChatRoom', { chatId: item.id, otherUser: item.user })}
-    >
-      <Image source={{ uri: item.user.photoURL }} style={styles.avatar} />
-      <View style={styles.chatInfo}>
-        <View style={styles.chatHeader}>
-          <Text style={styles.chatTime}>{item.lastMessageTime}</Text>
-          <Text style={styles.chatName}>{item.user.displayName}</Text>
-        </View>
-        <View style={styles.chatFooter}>
-          {item.unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>{item.unreadCount}</Text>
+  const renderItem = ({ item }) => {
+    const isMine = item.lastMessageSenderId === user.uid;
+
+    const renderStatusIcon = () => {
+      if (!isMine || !item.lastMessageStatus) return null;
+      if (item.lastMessageStatus === 'sent') {
+        return <Check size={16} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />;
+      }
+      return (
+        <CheckCheck
+          size={16}
+          color={item.lastMessageStatus === 'seen' ? '#34B7F1' : theme.colors.textSecondary}
+          style={{ marginLeft: 4 }}
+        />
+      );
+    };
+
+    return (
+      <TouchableOpacity
+        style={styles.chatItem}
+        onPress={() => navigation.navigate('ChatRoom', { chatId: item.id, otherUser: item.user })}
+      >
+        <Image source={{ uri: item.user.photoURL }} style={styles.avatar} />
+        <View style={styles.chatInfo}>
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatTime}>{item.lastMessageTime}</Text>
+            <Text style={styles.chatName}>{item.user.displayName}</Text>
+          </View>
+          <View style={styles.chatFooter}>
+            {item.unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadText}>{item.unreadCount}</Text>
+              </View>
+            )}
+            <View style={{ flex: 1, flexDirection: 'row-reverse', alignItems: 'center' }}>
+              {renderStatusIcon()}
+              <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]} numberOfLines={1}>
+                {item.lastMessage}
+              </Text>
             </View>
-          )}
-          <Text style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadLastMessage]} numberOfLines={1}>
-            {item.lastMessage}
-          </Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
